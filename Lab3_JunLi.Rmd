@@ -1,0 +1,123 @@
+---
+title: "Lab1_JunLi"
+subtitle: "Computational Statistics -- 732A90"
+author: "Jun Li"
+date: '2020-02-12'
+output: pdf_document
+---
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,message=FALSE}
+RNGversion(min(as.character(getRversion()),"3.6.2")) ## with your R-version
+#set.seed(12345, kind = "Mersenne-Twister", normal.kind = "Inversion")
+```
+
+
+
+# Question 1: Cluster Sampling
+
+It shows that most of the selected cities have large populations, which is consistent with the positive relationship between population and sampling probability.
+
+The two histograms show an approximately similar distribution, where the cities with larger population are likely to be included in sampling. Therefore the sampling function meets the requirement.
+
+
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,results=FALSE}
+# Part 1
+da1<-read.csv2("population.csv")
+
+
+# Part 2
+#myrunif<-function(a,c,m,x0,n)
+#   {re<-rep(0,n)
+#    for(i in 1:n){
+#      if(i==1) re[i]<-(a*x0+c)%%m
+#      if(i>1) re[i]<-(a*re[i-1]+c)%%m}
+  
+#    return (re/m)}
+
+mycity<-function(den)
+  {n<-length(den)
+   cdf<-rep(0,n)
+   for(i in 1:n) cdf[i]<-sum(den[1:i])
+   ran<-runif(1)                # allowed to use runif() ???
+   return (which(cdf>ran)[1])   # the index of selected city
+   }
+
+# Part 3
+cities<-data.frame(Municipality=rep("City",20),Population=rep(0,20),stringsAsFactors=FALSE)
+da<-da1;den<-da[,2]/sum(da[,2])
+
+for(i in 1:20)
+  {ind<-mycity(den)
+   cities[i,1]<-as.character(da[ind,1])
+   cities[i,2]<-da[ind,2]
+   da<-da[-ind]
+   den<-da[,2]/sum(da[,2])}
+
+# Part 4
+print("Here come the selected cities: ")
+cities
+
+# Part 5
+hist(da1[,2],main="All cities",labels=da1[,1],breaks=100)
+hist(cities[,2],main="Selected cities",breaks=100)
+```
+
+# Question 2: Different distributions
+## Part 1
+The goal is to get inverse of CDF of original random variable with uniform random generated numbers within (0,1) as input:
+$$F(x)=\int_{-\infty}^{x}\frac{1}{2}e^{-|x|}$$
+
+if x<0, $$F(x)=\frac{1}{2}e^{x}$$
+$$F^{-1}(U)=ln2U  (0<U<0.5)$$
+if x>=0,$$F(x)=1-\frac{1}{2}e^{-x}$$ 
+$$F^{-1}(U)=-ln2(1-U)  (0.5=<U<1)$$
+The simulations from the formulars above seem to work well.
+
+## Part 2
+The Acceptance/rejection method tries to find a minimal c which meets the following requirement:
+$$c*f_Y(x)>=f_X(x)$$
+$$c>=\frac{f_X(x)}{f_Y(x)}=\frac{\frac{1}{\sqrt{2\pi}}e^{-\frac{x^2}{2}}}{\frac{1}{2}e^{-|x|}}=\sqrt{\frac{2}{\pi}}e^{-\frac{x^2}{2}+|x|}=\sqrt{\frac{2}{\pi}}e^{-\frac{x^2}{2}-x}(x<0)<=\sqrt{\frac{2}{\pi}}e^{0.5}=1.315489$$
+$$=\sqrt{\frac{2}{\pi}}e^{-\frac{x^2}{2}+x}(x>=0)=\sqrt{\frac{2}{\pi}}e^{0.5}=1.315489$$
+The histograms of simulated numbers from acceptance/rejection method and normal random numbers show the significantly consistent distributions.
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,message=FALSE}
+# Part 1
+mysim<-function()
+  {ran<-runif(1)
+   if(ran<0.5) sim<-log(2*ran) else
+               sim<--log(2*(1-ran))
+   return (sim)}
+
+sim<-rep(0,10000)
+for(i in 1:10000) sim[i]<-mysim()
+hist(sim,main="Simulations",breaks=100)
+
+# Part 2
+myacrec<-function(c)
+  {x<-NULL
+   reject<-0
+   while(is.null(x))
+   {Y<-mysim()
+    U<-runif(1)
+    if(U<=dnorm(Y,0,1)/(c*(0.5*exp(-abs(Y))))) x<-Y else
+      reject<-reject+1}
+  return (c(x,reject))}
+
+sim1<-rep(0,2000)
+sumreject<-0
+for(i in 1:2000)  {re<-myacrec(1.315489);sim1[i]<-re[1];sumreject<-sumreject+re[2]}
+hist(sim1,main="Simulated N(0,1) with acceptance/rejection method",breaks=100)
+print(paste("The average rejection rate R is: ",sumreject/(2000+sumreject)," which is approximately equal with ",1-1/1.315489,sep=""))
+ 
+xnorm<-rnorm(2000,0,1)
+hist(xnorm,main="Normal random numbers",breaks=100)
+
+
+```
+
+
+# Code Appendix
+
+```{r code = readLines(knitr::purl("C:/Users/A550240/Desktop/LIU/2.1_CompuStatistics/Labs/Lab3_JunLi.Rmd", documentation = 1)), echo = T, eval = F}
+```

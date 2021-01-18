@@ -1,0 +1,103 @@
+---
+title: "Lab1_JunLi"
+subtitle: "Computational Statistics -- 732A90"
+author: "Jun Li"
+date: '2020-01-28'
+output: pdf_document
+---
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,message=FALSE}
+RNGversion(min(as.character(getRversion()),"3.6.2")) ## with your R-version
+#set.seed(12345, kind = "Mersenne-Twister", normal.kind = "Inversion")
+```
+
+
+
+# Question 1: Optimizing a model parameter
+optimize() function gives the result that the optimal MSE of 1.016456 is reached at lambda of 1.440037, which needed 28 evaluations. After specifying the accuracy of 0.01, optimal lambda is given at 1.446314 for minimum 1.016807, which needed 18 evaluations. These two optimizations give similar results.
+ 
+optim() function gives the result that the optimal MSE of 1.965773 is reached at lambda of 35, which needed only 3 evaluations. However, optimize() generates better optimization in this case. In other words, Golden-Section search or Optimize() is better method for 1-D optimization.
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,results=FALSE}
+da1<-read.csv2("mortality_rate.csv")
+da1<-cbind(da1,log(da1$Rate));colnames(da1)[3]<-"LMR"
+n=dim(da1)[1]
+set.seed(12345, kind = "Mersenne-Twister", normal.kind = "Inversion")
+id=sample(1:n,floor(n*0.5))
+train=da1[id,]
+test=da1[-id,]
+
+myMSE<-function(lambda,pars=list(X=train$Day,Y=train$LMR,Xtest=test$Day,Ytest=test$LMR)){
+  fit<-loess(pars$Y~pars$X,enp.target=lambda)
+  pre<-predict(fit,data=pars$Xtest)
+  mse<-sum((pars$Ytest-pre)^2)/nrow(test)
+  print(paste("Here comes the predictive MSE ",mse,sep=""))
+  return(mse)
+  }
+
+lambda<-seq(0.1,40,0.1)
+len<-length(lambda);mse<-vector(length=len)
+for(i in 1:len) mse[i]<-myMSE(lambda[i])
+plot(lambda,mse)
+
+print("Here comes the first optimization:")
+optimize(myMSE,c(0.1,40),maximum=FALSE)
+print("Here comes the second optimization:")
+optimize(myMSE,c(0.1,40),maximum=FALSE,tol=0.01)
+print("Here comes the optimization with optim():")
+optim(35,myMSE,method="BFGS")
+```
+
+# Question 2: Maximizing likelihood
+
+The log-likelihood function for 100 observations is as follows:
+$$
+\begin{aligned}
+\log[\frac{1}{\sigma\sqrt{2\pi}}e^{-\frac{(x_{1}-\mu)^2}{2\sigma^{2}}}\times\frac{1}{\sigma\sqrt{2\pi}}e^{-\frac{(x_{2}-\mu)^2}{2\sigma^{2}}}\times...\times\frac{1}{\sigma\sqrt{2\pi}}e^{-\frac{(x_{n}-\mu)^2}{2\sigma^{2}}}] \\
+\log\langle(\frac{1}{\sigma\sqrt{2\pi}})^{n}e^{-\frac{1}{2\sigma^{2}}[(x_{1}-\mu)^{2}+(x_{2}-\mu)^{2}+...+(x_{n}-\mu)^{2}]}\rangle\\
+\log[(\frac{1}{\sigma\sqrt{2\pi}})^{n}e^{-\frac{1}{2\sigma^{2}}\sum_{i=1}^{100}(x_i-\mu)^{2}}]\\
+\\-n\log(\sigma\sqrt{2\pi})-\frac{1}{2\sigma^{2}}\sum_{i=1}^{100}(x_i-\mu)^{2}\\
+\end{aligned}
+$$
+To maximize log-likelihood, the function's partial derivatives w.r.t. $\sigma$ and $\mu$ are set to zero: 
+
+$\frac{\partial f}{\partial\mu}=\frac{1}{2\sigma^{2}}\sum_{i=1}^{100}2(x_i-\mu)=0\\$
+$\sum x_i-n\mu=0\\$
+$\mu=\frac{\sum x_i}{n}=1.275528\\$
+
+$\frac{\partial f}{\partial \sigma}=-\frac{n}{\sigma}-\frac{\sum (x_i-\mu)^{2}}{2}\times\frac{-2}{\sigma^{3}}=0\\$
+$\sigma^{2}=\frac{\sum (x_i-\mu)^{2}}{n}=4.023942\\$
+
+
+Indeed it is a bad idea to maximize likelihood rather than maximizing log-likelihood, since the former one has not only one maximum or minimum so that there is risk the optimization ends in a local optimal.
+
+The algorithms converge in all cases, while those with gradient functions require least function and gradient evaluations 27/1. In general, the first method with BFGS without gradient function is recommended since it reaches the least minus log-likelihood of 211.5069, even though it is far from the maximum-likelihood estimates
+
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,message=FALSE}
+load("data.RData");da2<-data
+llik<-function(par,da=da2){ ##par[1] is mu, par[2] is sd
+  re<-1
+  for(i in 1:100) re<-re*dnorm(da[i],par[1],par[2])
+  re<--log(re)
+  #print(paste("The minus log-likelihood is ",re,sep=""))
+  return(re)}
+gr<-function(par,da=da2){
+  c(1/(par[2]^2)*sum(da-par[1]),-n/par[2]+sum((da-par[1])^2)/(par[2]^3))
+}
+
+print("Here comes the optimization with BFGS:")
+optim(c(0,1),llik,method="BFGS")
+print("Here comes the optimization with BFGS and gradient function:")
+optim(c(0,1),llik,gr,method="BFGS")
+print("Here comes the optimization with CG:")
+optim(c(0,1),llik,method="CG")
+print("Here comes the optimization with BFGS and gradient function:")
+optim(c(0,1),llik,gr,method="CG")
+```
+
+
+# Code Appendix
+
+```{r code = readLines(knitr::purl("C:/Users/A550240/Desktop/LIU/2.1_CompuStatistics/Labs/Lab2_JunLi.Rmd", documentation = 1)), echo = T, eval = F}
+```

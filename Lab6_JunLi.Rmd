@@ -1,0 +1,139 @@
+---
+title: "Lab6_JunLi"
+subtitle: "Computational Statistics -- 732A90"
+author: "Jun Li"
+date: '2020-03-06'
+output: pdf_document
+---
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,message=FALSE}
+RNGversion(min(as.character(getRversion()),"3.6.2")) ## with your R-version
+#set.seed(12345, kind = "Mersenne-Twister", normal.kind = "Inversion")
+```
+
+
+
+# Question 1: Genetic algorithm
+## Part 1.1-1.4
+code for 1.1~1.4 refer to the appendix.
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,results=FALSE}
+# Part 1.1
+f<-function(x) return (x^2/exp(x)-2*exp(-9*sin(x)/(x^2+x+1)))
+
+# Part 1.2
+crossover<-function(x,y) return ((x+y)/2)
+
+# Part 1.3
+mutate<-function(x) return (floor(x^2%%30)) 
+
+# Part 1.4
+myfunc<-function(maxiter,mutprob){
+  curve(f,0,30,xlab="x",ylab="Base function f",col="black",main=paste(maxiter,"/",mutprob,sep=""))
+  X<-seq(0,30,5)  # initial population
+  Values<-f(X)
+  points(X,Values,typ='p',col='blue',lwd=15,add=TRUE)
+  max<--Inf;maxind<-NULL
+  
+  for(i in 1:maxiter){ # reproduction
+    parents<-sample(X,2)
+    victim<-order(Values)[1]   #min.which(Values)
+    
+    prekid<-crossover(parents[1],parents[2])
+    kid<-mutate(prekid)*mutprob+(1-mutprob)*prekid
+    X[victim]<-kid
+    Values[victim]<-f(kid)
+    
+    tempmax<-max(Values)
+    if(tempmax>max) {max<-tempmax;maxind<-X[which.max(Values)]}
+    }
+    
+  points(maxind,max,typ='p',col='red',lwd=15,add=TRUE)
+  legend('topright',legend=c("Objective func","Initial popu","Maxi"),fill=c("black","blue","red"))
+  return (max)}
+
+
+myfunc(10,0.1)
+
+```
+
+
+
+## Part 1.5
+The collection of plots show that geneti algorithm works well with maximum optimization. Particularly, the higher mutation probability truely helps exit a local optimal.
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,results=FALSE}
+# Part 1.5
+maxiter<-c(10,100)
+mutprob<-c(0.1,0.5,0.9)
+par(mfrow=c(3,2),mar=c(2,2,2,2))
+for(i in 1:2)
+  for(j in 1:3)
+    myfunc(maxiter[i],mutprob[j])
+
+```
+
+
+
+
+
+# Question 2: EM algorithm
+## Part 1
+The plot shows a high correlation between Y and Z versus X, and the variance of Y and Z is decreasing through X.
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,message=FALSE}
+# Part 1
+da<-read.csv("physical1.csv")
+X<-da$X;Y<-da$Y;Z<-da$Z
+plot(X,Y,typ="l",col="blue",ylim=c(0,30));lines(X,Z,typ="l",col="red")
+legend('topright',legend=c("Y/X","Z/X"),fill=c("blue","red"))
+```
+
+## Part 2
+Deduction refer to appendix of notes.
+
+## Part 3
+
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,message=FALSE}
+# Part 3
+n<-length(X);
+nm<-sum(is.na(Z));no<-n-nm
+indm<-which(is.na(Z))
+
+lambda<-100
+repeat{
+  nylambda<-(2*sum(X*Y)+sum(X[-indm]*Z[-indm])+2*nm*lambda[length(lambda)])/(4*n)
+  lambda<-c(lambda,nylambda)
+  if(abs(lambda[length(lambda)]-lambda[length(lambda)-1])<0.001) break()
+}
+
+re<-lambda[length(lambda)]
+print(paste("The optimal lambda is: ",re,sep=""))
+print(paste("The number iterations is: ",length(lambda)-1,sep=""))
+
+
+```
+
+
+
+## Part 4
+The expected Y and Z seem to follow the trend of actual values, which confirmed the effect of EM algorithm.
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,message=FALSE}
+# Part 4
+ey<-re/X
+ez<-2*re/X
+
+plot(X,Y,typ="l",col="blue",ylim=c(0,30));lines(X,Z,typ="l",col="red")
+lines(X,ey,typ="l",col="green");lines(X,ez,typ="l",col="brown")
+legend('topright',legend=c("Y/X","Z/X","E(Y)","E(Z)"),fill=c("blue","red","green","brown"))
+
+
+```
+
+
+# Code Appendix
+
+```{r code = readLines(knitr::purl("C:/Users/A550240/Desktop/LIU/2.1_CompuStatistics/Labs/Lab6_JunLi.Rmd", documentation = 1)), echo = T, eval = F}
+```

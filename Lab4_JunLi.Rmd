@@ -1,0 +1,188 @@
+---
+title: "Lab4_JunLi"
+subtitle: "Computational Statistics -- 732A90"
+author: "Jun Li"
+date: '2020-02-17'
+output: pdf_document
+---
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,message=FALSE}
+RNGversion(min(as.character(getRversion()),"3.6.2")) ## with your R-version
+set.seed(12345, kind = "Mersenne-Twister", normal.kind = "Inversion")
+```
+
+
+
+# Question 1: Computations with Metropolis-Hastings
+
+Graph 1 shows a bad sampling from LN() distribution, where convergence does not occur and in this case there is no real burn-in period. While graph 2 shows a convergence and better result. Therefore, Chi-square is a good proposal distribution for target.
+
+
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,results=FALSE}
+# Part 1
+goal<-function(x) x^5*exp(-x)
+
+MHln<-function(nstep,X0){
+    vN<-1:nstep
+    vX<-rep(X0,nstep);
+    for (i in 2:nstep){
+	   X<-vX[i-1]
+	   Y<-rlnorm(1,X,1)
+	   u<-runif(1)
+	   a<-min(c(1,(goal(Y)*dlnorm(X,Y,1))/(goal(X)*dlnorm(Y,X,1))))
+	   if(u<=a) vX[i]<-Y else 
+	      vX[i]<-X}
+    
+   return (vX)}
+vX_ln<-MHln(1000,1)
+
+   plot(1:1000,vX_ln,pch=19,cex=0.3,col="black",xlab="t",ylab="X(t)",main="1:with LN()",ylim=c(min(vX_ln)-1,max(vX_ln)+1),type="l")
+   abline(h=0)
+
+# Part 2
+MHchi<-function(nstep,X0){
+    vN<-1:nstep
+    vX<-rep(X0,nstep);
+    for (i in 2:nstep){
+	   X<-vX[i-1]
+	   Y<-rchisq(1,floor(X+1))
+	   u<-runif(1)
+	   a<-min(c(1,(goal(Y)*dchisq(X,floor(Y+1)))/(goal(X)*dchisq(Y,floor(X+1)))))
+	   if(u<=a) vX[i]<-Y else 
+	      vX[i]<-X}
+    
+   return (vX)}
+vX_chi<-MHchi(1000,1)
+
+plot(1:1000,vX_chi,pch=19,cex=0.3,col="black",xlab="t",ylab="X(t)",main="2:with Chisq",ylim=c(min(vX_chi)-1,max(vX_chi)+1),type="l")
+   abline(h=0)
+```
+
+The Gelman-Rubin method presents a mean value significantly close to 1, and the upper confidence limit is also small. After analyzing these sequences, the sampler tends to reach convergence of good grade.
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,results=FALSE}
+# Part 4
+library(coda)
+f1<-mcmc.list()
+n<-1000;k<-10
+X1<-matrix(1,ncol=k,nrow=n)
+for (i in 1:k){X1[,i]=MHchi(n,i);f1[[i]]<-as.mcmc(X1[,i])}
+print(gelman.diag(f1))
+
+# Part 5
+print(paste("The integral of generated samples with LN() is:",mean(vX_ln),sep=""))
+print(paste("The integral of generated samples with Chi-Square() is:",mean(vX_chi),sep=""))
+
+# Part 6
+
+```
+
+The target distribution is a 120*Gamma(6,1), therefore actual integral of given function is E(Y~Gamma(6,1))=6, which is close to the sampling result. 
+
+$f(x)=x^5e^{-x}=(6-1)!*\frac{1^6x^{6-1}e^{-1*x}}{(6-1)!}=5!*Gamma(6,1)=120*Gamma(6,1)$
+
+
+# Question 2: Gibbs sampling
+## Part 1
+From the plot, a log-form function is suggested.
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,message=FALSE}
+# Part 1
+load("chemical.RData")
+plot(X,Y)
+```
+## Part 2
+$$
+\begin{aligned}
+\\L(Y/\mu)=P(Y_n/\mu_n)...P(Y_i/\mu_i)...P(Y_1/\mu_1)\\
+\\=\frac{1}{\sigma\sqrt{2\pi}}e^{-\frac{(Y_n-\mu_n)^2}{2\sigma^2}}...\frac{1}{\sigma\sqrt{2\pi}}e^{-\frac{(Y_i-\mu_i)^2}{2\sigma^2}}...\frac{1}{\sigma\sqrt{2\pi}}e^{-\frac{(Y_1-\mu_1)^2}{2\sigma^2}}\\
+\\=(\frac{1}{\sigma\sqrt{2\pi}})^ne^{-\frac{1}{2\sigma^2}\sum(Y_i-\mu_i)^2}\\
+\end{aligned}
+$$
+$$
+\begin{aligned}
+\\p(u)=P(\mu_n/\mu_{n-1})...P(\mu_i/\mu_{i-1})...P(\mu_2/\mu_1)P(\mu_1)
+\\=\frac{1}{\sigma\sqrt{2\pi}}e^{-\frac{(\mu_n-\mu_{n-1})^2}{2\sigma^2}}...\frac{1}{\sigma\sqrt{2\pi}}e^{-\frac{(\mu_i-\mu_{i-1})^2}{2\sigma^2}}...\frac{1}{\sigma\sqrt{2\pi}}e^{-\frac{(\mu_2-\mu_1)^2}{2\sigma^2}}*1
+\\=(\frac{1}{\sigma\sqrt{2\pi}})^{n-1}e^{-\frac{1}{2\sigma^2}\sum_{i=2}^{n} (\mu_i-\mu_{i-1})^2}
+\end{aligned}
+$$
+
+
+
+    
+
+## Part 3
+General posterior function is as follows: 
+$$
+\begin{aligned}
+\\P(\mu/Y)\propto P(Y/\mu)P(\mu)=(\frac{1}{\sigma\sqrt{2\pi}})^ne^{-\frac{1}{2\sigma^2}\sum(Y_i-\mu_i)^2}*(\frac{1}{\sigma\sqrt{2\pi}})^{n-1}e^{-\frac{1}{2\sigma^2}\sum_{i=2}^{n} (\mu_i-\mu_{i-1})^2}\\
+\\ \propto e^{-\frac{1}{2\sigma^2}(\sum(Y_i-\mu_i)^2+\sum_{i=2}^{n} (\mu_i-\mu_{i-1})^2)}=e^{-\frac{1}{2\sigma^2}[(Y_1-\mu_1)^2+\sum_{i=2}^{n}[(Y_i-\mu_i)^2+(\mu_i-\mu_{i-1})^2]]}
+\end{aligned}
+$$
+Conditional marginal distribution is as follows:
+When i=1,
+$$
+\begin{aligned}
+\\P(\mu_1/\mu_{-1},Y)\propto e^{-\frac{1}{2\sigma^2}[(Y_1-\mu_1)^2+(\mu_2-\mu_1)^2]}
+\\ \propto e^{-\frac{1}{2(\sigma^2/2)}[\mu_1-(Y_1+\mu_2)/2]^2} (Hint:B)
+\\ \propto N((Y_1+\mu_2)/2,\sigma^2/2)
+\end{aligned}
+$$
+When 1<i<n,
+$$
+\begin{aligned}
+\\P(\mu_i/\mu_{-i},Y)\propto e^{-\frac{1}{2\sigma^2}[(Y_i-\mu_i)^2+(\mu_i-\mu_{i-1})^2+(\mu_{i+1}-\mu_i)^2]}
+\\ \propto e^{-\frac{1}{2(\sigma^2/3)}[\mu_i-(Y_i+\mu_{i-1}+\mu_{i+1})/3]^2}(Hint:C)
+\\ \propto N((Y_i+\mu_{i-1}+\mu_{i+1})/3,\sigma^2/3)
+\end{aligned}
+$$
+When i=n,
+$$
+\begin{aligned}
+\\P(\mu_1/\mu_{-1},Y)\propto e^{-\frac{1}{2\sigma^2}[(Y_n-\mu_n)^2+(\mu_n-\mu_{n-1})^2]}
+\\ \propto e^{-\frac{1}{2(\sigma^2/2)}[\mu_1-(Y_n+\mu_{n-1})/2]^2} (Hint:B)
+\\ \propto N((Y_n+\mu_{n-1})/2,\sigma^2/2)
+\end{aligned}
+$$
+
+
+## Part 4
+The sampler seems to have reduced noise to some extent, and present the inherent relationship between X and Y.
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,message=FALSE}
+# Part 4
+mygibbs<-function(nstep,init,Y,mysd){
+   len<-length(Y)
+   mu<-matrix(0,ncol=len,nrow=nstep)
+   mu[1,]=init
+     
+   for(i in 1:nstep){
+      for(j in 1:len)
+        {if(j==1) mu[i,j]=rnorm(1,(Y[1]+mu[i,2])/2,mysd/2)
+         else if(j==len) mu[i,j]=rnorm(1,(Y[j]+mu[i,j-1])/2,mysd/2)
+         else mu[i,j]=rnorm(1,(Y[j]+mu[i,j-1]+mu[i,j+1])/3,mysd/3)}
+      if(i<nstep) mu[i+1,]<-mu[i,]}
+   
+    return (mu)}
+
+nymu<-mygibbs(1000,rep(0,length(Y)),Y,0.2)
+re<-colMeans(nymu)
+plot(X,Y)
+lines(1:length(Y),re,col="red",typ="l")
+
+```
+
+## Part 5
+The trace-plot shows a good mixing/convergence, and the burn-in period is significantly short around 20 points.
+
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,message=FALSE}
+# Part 5
+plot(nymu[,length(Y)],typ="l")
+```
+
+# Code Appendix
+
+```{r code = readLines(knitr::purl("C:/Users/A550240/Desktop/LIU/2.1_CompuStatistics/Labs/Lab4_JunLi.Rmd", documentation = 1)), echo = T, eval = F}
+```

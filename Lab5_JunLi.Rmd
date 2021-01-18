@@ -1,0 +1,186 @@
+---
+title: "Lab4_JunLi"
+subtitle: "Computational Statistics -- 732A90"
+author: "Jun Li"
+date: '2020-02-17'
+output: pdf_document
+---
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,message=FALSE}
+RNGversion(min(as.character(getRversion()),"3.6.2")) ## with your R-version
+#set.seed(12345, kind = "Mersenne-Twister", normal.kind = "Inversion")
+```
+
+
+
+# Question 1: Hypothesis testing
+## Part 1.1/2
+The scatter plot presents a lookingly random behaviour of lottery. However, the fitted values from Loess() shows a slightly negative relationship between X and expected Y.
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,results=FALSE}
+# Part 1
+da1<-read.csv2("lottery.csv")
+Y<-da1$Draft_No;X<-da1$Day_of_year
+# Part 2
+fit<-loess(Y~X)
+Y1<-fit$fitted
+plot(X,Y)
+lines(X,Y1,col="red",add=TRUE)
+```
+
+
+
+## Part 1.3
+P-value from the hypothesis testing is 0.0035<1%, which means that "H0:T is significantly larger than 0" is rejected. Therefore, there is no trend in lottery and it is random.
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,results=FALSE}
+# Part 3
+set.seed(12345, kind = "Mersenne-Twister", normal.kind = "Inversion")
+B<-2000;   ## input
+n<-dim(da1)[1]
+t<-rep(NULL,B)
+for(i in 1:B){
+  samx<-sample(1:n,n,replace=TRUE)
+  samy<-da1[samx,]$Draft_No
+  samda<-cbind(samx,samy);#names(samda)=c("samx","samy")
+  samyfit<-loess(samy~samx)$fitted
+  t[i]<-(max(samyfit)-min(samyfit))/(samx[which.max(samyfit)]-samx[which.min(samyfit)])}
+hist(t,breaks=100,main="Test 1.3")
+print(paste("P value is: ",mean(t>0),sep=""))
+```
+
+
+
+## Part 1.4
+P-value of two-sided test is 0.16>5%, which means that H0 can not be rejected. Therefore, permutation test shows that the lottery is random.
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,results=FALSE}
+# Part 4
+myperm<-function(B,data){
+set.seed(12345, kind = "Mersenne-Twister", normal.kind = "Inversion")
+n<-dim(data)[1]
+t<-rep(NULL,B)
+
+for(i in 1:B){
+  permx<-sample(1:n,n)
+  y<-data$Draft_No
+  permda<-cbind(permx,y);#names(samda)=c("samx","samy")
+  permyfit<-loess(y~permx)$fitted
+  t[i]<-(max(permyfit)-min(permyfit))/(permx[which.max(permyfit)]-permx[which.min(permyfit)])}
+
+fit0<-loess(Draft_No~Day_of_year,data=data)$fitted
+t0<-(max(fit0)-min(fit0))/(data$Day_of_year[which.max(fit0)]-data$Day_of_year[which.min(fit0)])
+p<-mean(abs(t)>abs(t0))  ## two-sided
+
+return (list(pvalue=p,originalt=t0,samplet=t))}
+
+re<-myperm(2000,da1)
+p<-re$pvalue
+t0<-re$originalt
+t<-re$samplet
+hist(t,breaks=100,main="Test 1.4")
+abline(v=t0,col="blue")
+print(paste("P value is: ",p,sep=""))
+```
+
+
+## Part 1.5
+With 100 loops for each alpha, the series of power index is presented in the graph. Each alpha has a power of 1, which confirms a high quality of test statistic.
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,results=FALSE}
+# Part 5
+#set.seed(12345, kind = "Mersenne-Twister", normal.kind = "Inversion")
+
+generate<-function(alpha){   ## generate dataset
+  X<-da1$Day_of_year
+  beta<-rnorm(366,183,10)
+  Y<-pmax(0,pmin(alpha*X+beta,366))
+  return (as.data.frame(cbind(Day_of_year=X,Draft_No=Y)))}
+
+alpha<-seq(0.1,10,0.1)
+n<-length(alpha)
+power<-rep(NULL,n)
+for(i in 1:n){
+  err2<-0
+  for(j in 1:100){
+    da<-generate(alpha[i])
+    p<-myperm(200,da)$pvalue
+    if(p>=0.05) err2<-err2+1}
+  power[i]<-1-err2/100}
+
+plot(alpha,power,main="Power trend")
+```
+
+
+
+# Question 2: Bootstrap, jackknife and confidence intervals
+## Part 1
+The price histogram suggests that it probably follows the gamma distribution.
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,message=FALSE}
+# Part 1
+da2<-read.csv2("prices1.csv")
+hist(da2$Price,breaks=100,prob=TRUE)
+lines(density(da2$Price),col="blue")
+print(paste("The mean price is: ",mean(da2$Price),sep=""))
+```
+
+## Part 2
+The estimation of mean price distribution is as follows:
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,message=FALSE}
+# Part 2
+library("boot")
+
+stat1<-function(data,vn){
+  data<-as.data.frame(data[vn,])
+  return (mean(data$Price))}
+
+res<-boot(da2,stat1,R=1000)
+boot.ci(res)  ## confidence intervals with different methods
+plot(res)
+
+print(paste("The estimated variance of statistic with bootstrap is: ",sum((res$t-mean(res$t))^2)/(1000-1),sep=""))
+print(paste("The bias-corrected mean of statistic with bootstrap is: ",2*res$t0-mean(res$t),sep=""))
+```
+
+## Part 3
+The estimated variance of mean price with jackknife is larger than bootstrap method
+
+
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,message=FALSE}
+# Part 3
+t0<-mean(da2$Price)
+n<-nrow(da2)
+t<-rep(NULL,n)
+for(i in 1:n) t[i]<-mean(da2$Price[-i])
+
+print(paste("The jackknife mean price is: ",sum((n*t0-(n-1)*t-mean(t))^2)/(n*(n-1)),sep=""))
+```
+
+
+
+## Part 4
+Confidence intervals with different methods are ploted in the graph as below, where the Normal method has largest length and smallest center location, while Percentile and BCa methods share a similar interval.
+
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,message=FALSE}
+# Part 4
+w<-10
+ci<-boot.ci(res)
+
+cat(paste(sprintf("%*s",w,""),sprintf("%*s",w,"lower")),sprintf("%*s",w,"upper"),sprintf("%*s",w,"center"),sprintf("%*s",w,"length"))
+cat("\n")
+cat(paste(sprintf("%*s",w,"Percentile"),sprintf("%*.7s",w,ci$percent[4]),sprintf("%*.7s",w,ci$percent[5]),sprintf("%*.7s",w,(ci$percent[4]+ci$percent[5])/2),sprintf("%*.7s",w,ci$percent[5]-ci$percent[4])))
+cat("\n")
+cat(paste(sprintf("%*s",w,"BCa"),sprintf("%*.7s",w,ci$bca[4]),sprintf("%*.7s",w,ci$bca[5]),sprintf("%*.7s",w,(ci$bca[4]+ci$percent[5])/2),sprintf("%*.7s",w,ci$bca[5]-ci$bca[4])))
+cat("\n")
+cat(paste(sprintf("%*s",w,"Normal"),sprintf("%*.7s",w,ci$normal[2]),sprintf("%*.7s",w,ci$normal[3]),sprintf("%*.7s",w,(ci$normal[2]+ci$normal[3])/2),sprintf("%*.7s",w,ci$normal[3]-ci$normal[2])))
+```
+
+
+# Code Appendix
+
+```{r code = readLines(knitr::purl("C:/Users/A550240/Desktop/LIU/2.1_CompuStatistics/Labs/Lab5_JunLi.Rmd", documentation = 1)), echo = T, eval = F}
+```

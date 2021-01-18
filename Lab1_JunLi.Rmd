@@ -1,0 +1,91 @@
+---
+title: "Lab1_JunLi"
+subtitle: "Computational Statistics -- 732A90"
+author: "Jun Li"
+date: '2020-01-27'
+output: pdf_document
+---
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,message=FALSE}
+RNGversion(min(as.character(getRversion()),"3.6.2")) ## with your R-version
+#set.seed(12345, kind = "Mersenne-Twister", normal.kind = "Inversion")
+```
+
+
+
+# Question 1: Be careful when comparing
+The snippets give wrong result on the first comparision, which is led by underflow and some significant digits of float numbers were lost. Improvment has been made by multiplying numbers with integer before dividing operations. 
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE}
+x1<-1/3;x2<-1/4
+if((12*x1-12*x2)/12==1/12) print(" Subtraction is correct" ) else
+print(" Subtraction is wrong" )
+
+x1<-1;x2<-1/2
+if(x1-x2==1/2) print(" Subtraction is correct" ) else 
+print("Subtraction is wrong" )
+
+```
+
+# Question 2: Derivative
+The true values at all points should be 1, while we get approximately 1.11 at x=1 and 0 at x=100000. The difference is resulted by underflow where significant digits such as those least decimals get lost. 
+
+```{r,eval=TRUE,echo=FALSE,warning=FALSE,message=FALSE}
+f<-function(x) x
+mydev<-function(f,x) (f(x+1e-15)-f(x))/1e-15
+
+print(paste("f' at x=1 is ",mydev(f,1),sep=""))
+print(paste("f' at x=100000 is ",mydev(f,1e+5),sep=""))
+```
+
+
+# Qyestion 3: Variance
+The plot shows bad estimate by the direct implementation of given formular and the differences are large, which is caused by cancellation effect where the numbers with similar magnitude but opposite signs are summed. Since variances are invariant with position, so a substraction of x value is made before adopting the formular, by which the differences from var() become much less. 
+
+
+```{r, eval=TRUE,echo=FALSE}
+myvar<-function(x) (sum(x^2)-sum(x)^2/length(x))/(length(x)-1)
+set.seed(12345, kind = "Mersenne-Twister", normal.kind = "Inversion")
+mu<-1e+8
+x<-rnorm(10000,mu,1)  
+y<-vector(length=10000)
+for(i in 1:10000) y[i]<-myvar(x[1:i])-var(x[1:i])
+plot(y,main="Y vs. i",type="l")
+
+nyvar<-function(x) (sum((x-mu)^2)-sum(x-mu)^2/length(x))/(length(x)-1)
+y1<-vector(length=10000)
+for(i in 1:10000) y1[i]<-nyvar(x[1:i])-var(x[1:i])
+plot(y1,main="Y1 vs. i",type="l")
+```
+
+
+
+# Question 4: Linear Algebra
+The solve() function returns error message *"Error in solve.default(a) : system is computationally singular: reciprocal condition number = 7.78804e-17"*, which means matrix A is not invertible or computationally stable. The large result of kappa() 8.523517e+14 also confirmed the error message, which denotes a high sensitivity of output b onto change of x. 
+
+Improvment is made by rescaling the columns in a, which results in a much better condition number of 293622.
+
+```{r, eval=TRUE,echo=FALSE}
+da<-read.csv("tecator.csv")
+x<-cbind(1,as.matrix(da[,c(-1,-103)]));y<-as.matrix(da[,103])
+colnames(x)[1]<-"Intercept"
+a<-t(x)%*%x;b<-t(x)%*%y
+
+#coef<-solve(a)%*%b  
+#kappa(a)
+
+## After
+damu<-sapply(da,mean)
+nyda<-da-matrix(rep(damu,215),nrow=215)
+x<-cbind(1,as.matrix(nyda[,c(-1,-103)]));y<-as.matrix(nyda[,103])
+colnames(x)[1]<-"Intercept"
+a<-t(x)%*%x;b<-t(x)%*%y
+coef<-solve(a)%*%b
+print(paste("The new condition number after scaling is ",kappa(a),sep=""))
+```
+
+
+# Code Appendix
+
+```{r code = readLines(knitr::purl("C:/Users/A550240/Desktop/LIU/2.1_CompuStatistics/Labs/Lab1_JunLi.Rmd", documentation = 1)), echo = T, eval = F}
+```
